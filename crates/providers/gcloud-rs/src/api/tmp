@@ -1,0 +1,101 @@
+{
+  "kind": "compute#instanceList",
+  "id": "projects/startingone-1671013902513/zones/us-central1-a/instances",
+  "items": [
+    {
+      "kind": "compute#instance",
+      "id": "1253276382115965821",
+      "creationTimestamp": "2025-03-02T18:36:03.237-08:00",
+      "name": "instance-20250222-104328",
+      "tags": {
+        "fingerprint": "42WmSpB8rSM="
+      },
+      "machineType": "https://www.googleapis.com/compute/v1/projects/startingone-1671013902513/zones/us-central1-a/machineTypes/e2-micro",
+      "status": "RUNNING",
+      "zone": "https://www.googleapis.com/compute/v1/projects/startingone-1671013902513/zones/us-central1-a",
+      "networkInterfaces": [
+        {
+          "kind": "compute#networkInterface",
+          "network": "https://www.googleapis.com/compute/v1/projects/startingone-1671013902513/global/networks/default",
+          "subnetwork": "https://www.googleapis.com/compute/v1/projects/startingone-1671013902513/regions/us-central1/subnetworks/default",
+          "networkIP": "10.128.0.21",
+          "name": "nic0",
+          "accessConfigs": [
+            {
+              "kind": "compute#accessConfig",
+              "type": "ONE_TO_ONE_NAT",
+              "name": "External NAT",
+              "natIP": "34.133.197.138",
+              "networkTier": "PREMIUM"
+            }
+          ],
+          "fingerprint": "orLcM1uKuH8=",
+          "stackType": "IPV4_ONLY"
+        }
+      ],
+      "disks": [
+        {
+          "kind": "compute#attachedDisk",
+          "type": "PERSISTENT",
+          "mode": "READ_WRITE",
+          "source": "https://www.googleapis.com/compute/v1/projects/startingone-1671013902513/zones/us-central1-a/disks/instance-20250222-104328",
+          "deviceName": "instance-20250222-104328",
+          "index": 0,
+          "boot": true,
+          "autoDelete": true,
+          "licenses": [
+            "https://www.googleapis.com/compute/v1/projects/debian-cloud/global/licenses/debian-12-bookworm"
+          ],
+          "interface": "SCSI",
+          "guestOsFeatures": [
+            {
+              "type": "UEFI_COMPATIBLE"
+            },
+            {
+              "type": "VIRTIO_SCSI_MULTIQUEUE"
+            },
+            {
+              "type": "GVNIC"
+            },
+            {
+              "type": "SEV_CAPABLE"
+            },
+            {
+              "type": "SEV_LIVE_MIGRATABLE_V2"
+            }
+          ],
+          "diskSizeGb": "10",
+          "architecture": "X86_64"
+        }
+      ],
+      "metadata": {
+        "kind": "compute#metadata",
+        "fingerprint": "V_CY2qVmWTU="
+      },
+      "selfLink": "https://www.googleapis.com/compute/v1/projects/startingone-1671013902513/zones/us-central1-a/instances/instance-20250222-104328",
+      "scheduling": {
+        "onHostMaintenance": "MIGRATE",
+        "automaticRestart": true,
+        "preemptible": false,
+        "provisioningModel": "STANDARD"
+      },
+      "cpuPlatform": "AMD Rome",
+      "labelFingerprint": "42WmSpB8rSM=",
+      "startRestricted": false,
+      "deletionProtection": false,
+      "shieldedInstanceConfig": {
+        "enableSecureBoot": false,
+        "enableVtpm": true,
+        "enableIntegrityMonitoring": true
+      },
+      "shieldedInstanceIntegrityPolicy": {
+        "updateAutoLearnPolicy": true
+      },
+      "fingerprint": "h__4M7E0wos=",
+      "lastStartTimestamp": "2025-03-02T18:36:12.143-08:00",
+      "satisfiesPzi": true
+    }
+  ],
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/startingone-1671013902513/zones/us-central1-a/instances"
+}
+

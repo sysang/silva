@@ -4,4 +4,5 @@ resolver = "2"
 members = [
   "crates/providers/sacloud-rs",
   "crates/tui",
+  "crates/providers/gcloud-rs",
 ]
