@@ -1,9 +1,9 @@
+/*
+    Specifications: https://cloud.google.com/compute/docs/reference/rest/v1/instances
+ */
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use reqwest::{header::AUTHORIZATION, Response};
 use anyhow::bail;
-
-const BASE_URL: &str = "compute/v1";
-const SERVICE_ENDPOINT: &str = "https://compute.googleapis.com";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InstanceData {
@@ -122,6 +122,8 @@ pub struct InstanceCfg {
 
 #[derive(Debug, Clone)]
 pub struct Client {
+    service_endpoint: String,
+    base_url: String,
     project: String,
     region: String,
     zone: String,
@@ -129,8 +131,16 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(project: String, region: String, zone: String, access_token: String) -> Self {
+    pub fn new(
+        service_endpoint: String,
+        base_url: String,
+        project: String,
+        region: String,
+        zone: String,
+        access_token: String) -> Self {
         Self {
+            service_endpoint,
+            base_url,
             project,
             region,
             zone,
@@ -140,9 +150,13 @@ impl Client {
 
     pub fn full_url(&self, instance_name: Option<String>) -> String {
         if let Some(name) = instance_name {
-            return format!("{SERVICE_ENDPOINT}/{BASE_URL}/projects/{0}/zones/{1}/instances/{2}", self.project, self.zone, name);
+            return format!(
+                "{0}/{1}/projects/{2}/zones/{3}/instances/{4}",
+                self.service_endpoint, self.base_url, self.project, self.zone, name);
         } else {
-            return format!("{SERVICE_ENDPOINT}/{BASE_URL}/projects/{0}/zones/{1}/instances", self.project, self.zone);
+            return format!(
+                "{0}/{1}/projects/{2}/zones/{3}/instances",
+                self.service_endpoint, self.base_url, self.project, self.zone);
         };
     }
 
@@ -272,6 +286,185 @@ impl Client {
             return self.parse_json_body::<T>(res).await;
         } else {
             bail!("Request to url: {0}, got server error, status: {1}", url, status.as_str());
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockito::*;
+
+    async fn prepare_test_request(
+        method: String,
+        instance_name: Option<String>,
+        status_code: usize,
+        res_body: Option<String>) -> (Mock, Client) {
+        let base_url = "compute/v1".to_string();
+        let access_token = "dummy_token".to_string();
+        let project = "test_project".to_string();
+        let region = "test_region".to_string();
+        let zone = "test_zone".to_string();
+
+        // Request a new server from the pool
+        let mut server = mockito::Server::new_async().await;
+
+        let service_endpoint = server.url();
+ 
+        let binding_url = match instance_name {
+            Some(name) => format!("/compute/v1/projects/test_project/zones/test_zone/instances/{}", &name).clone(),
+            _ => "/compute/v1/projects/test_project/zones/test_zone/instances".to_string()
+        };
+
+        // Create a mock
+        let mut mock = server.mock(&method, binding_url.as_str())
+        .with_status(status_code)
+        .with_header("content-type", "application/json")
+        .with_header("Authorization", "Bearer dummy_token");
+
+        if let Some(body) = res_body {
+            mock = mock.with_body(body);
+        }
+
+        let client = Client::new(
+            service_endpoint,
+            base_url,
+            project,
+            region,
+            zone,
+            access_token
+        );
+
+        return (mock, client);
+    }
+
+    #[tokio::test]
+    async fn test_insert_success() {
+        let instance_name = "test_instance".to_string();
+        let machine_type = "e2-micro".to_string();
+        let disk_type = "pd-balanced".to_string();
+        let disk_image = "projects/debian-cloud/global/images/debian-12-bookworm-v20250212".to_string();
+        let network_interface_name = "External NAT".to_string();
+        let res_body_kind = "compute#operation";
+        let res_body_id = "1231944675420996843";
+        let res_body = Some(format!("{{
+            \"kind\": \"{res_body_kind}\",
+            \"id\": \"{res_body_id}\"}}
+        "));
+
+        let (mut mock, client) = prepare_test_request(
+            "POST".to_string(), None, 200, res_body).await;
+
+        let instance_cfg = InstanceCfg {            
+            instance_name: instance_name.clone(),
+            machine_type: machine_type.clone()
+        };
+        let disk = client.prepare_disk_data(
+            &instance_cfg,
+            "10".to_string(),
+            disk_type.clone(),
+            disk_image.clone()
+        );
+        let network_interface = client.prepare_network_interface_data(
+                network_interface_name.clone(),
+                "PREMIUM".to_string(),
+                "IPV4_ONLY".to_string()
+            );
+
+        mock = mock
+            .match_body(
+                    mockito::Matcher::AllOf(vec![
+                        mockito::Matcher::Regex(instance_name.clone()),
+                        mockito::Matcher::Regex(machine_type.clone()),
+                        mockito::Matcher::Regex(disk_type.clone()),
+                        mockito::Matcher::Regex(disk_image.clone()),
+                        mockito::Matcher::Regex(network_interface_name.clone())
+                    ])
+                )
+            .create();
+
+        let result = client.insert::<OperationResult>(
+            instance_cfg,
+            vec!(disk),
+            vec!(network_interface)
+            ).await.unwrap();
+
+        mock.assert();
+        
+        if let OperationResult::OperationSuccess(r) = result {
+            assert_eq!(res_body_id, r.id);
+            assert_eq!(res_body_kind, r.kind);
+        } else {
+            panic!("result must be intance of OperationSuccess")
+        }
+    }
+
+    #[tokio::test]
+    async fn test_delete_success() {
+        let instance_name = "test_instance".to_string();
+        let res_body_kind = "compute#operation";
+        let res_body_id = "1231944675420996843";
+        let res_body = Some(format!("{{
+            \"kind\": \"{res_body_kind}\",
+            \"id\": \"{res_body_id}\"}}
+        "));
+
+        let (mut mock, client) = prepare_test_request(
+            "DELETE".to_string(),
+            Some(instance_name.clone()),
+            200,
+            res_body).await;
+
+        mock = mock.create();
+        
+        let result = client.delete::<OperationResult>(instance_name).await.unwrap();
+
+        mock.assert();
+        
+        if let OperationResult::OperationSuccess(r) = result {
+            assert_eq!(res_body_id, r.id);
+            assert_eq!(res_body_kind, r.kind);
+        } else {
+            panic!("result must be intance of OperationSuccess")
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_failure() {
+        let instance_name = "test_instance".to_string();
+        let res_body_error_code = 400;
+        let res_body_erro_message = "The resource was not found".to_string();
+        let res_body = Some(format!("{{
+            \"error\": {{
+                \"code\": {0},
+                \"message\": \"{1}\",
+                \"errors\": [
+                    {{
+                        \"message\": \"The resource was not found\",
+                        \"domain\": \"global\",
+                        \"reason\": \"notFound\"
+                    }}
+                ]
+                }}
+        }}", res_body_error_code, res_body_erro_message));
+
+        let (mut mock, client) = prepare_test_request(
+            "GET".to_string(),
+            Some(instance_name.clone()),
+            400,
+            res_body).await;
+
+        mock = mock.create();
+        
+        let result = client.get::<OperationResult>(instance_name).await.unwrap();
+
+        mock.assert();
+        
+        if let OperationResult::OperationFailure(r) = result {
+            assert_eq!(res_body_error_code, r.error.code);
+            assert_eq!(res_body_erro_message, r.error.message);
+        } else {
+            panic!("result must be intance of OperationFailure");
         }
     }
 }
